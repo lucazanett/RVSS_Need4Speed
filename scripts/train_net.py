@@ -13,6 +13,7 @@ import sklearn.metrics as metrics
 import matplotlib.pyplot as plt
 from torch.utils.data import random_split
 from steerDS import SteerDataSet
+from preprocess import preprocess_image
 
 #######################################################################################################################################
 ####     This tutorial is adapted from the PyTorch "Train a Classifier" tutorial                                                   ####
@@ -35,6 +36,7 @@ def imshow(img):
 
 #transformations for raw images before going to CNN
 transform = transforms.Compose([transforms.ToTensor(),
+                                preprocess_image(),
                                 transforms.Resize((40, 60)),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                                 ])
@@ -194,8 +196,8 @@ net = Net()
 
 criterion = nn.CrossEntropyLoss()
 #You could use also ADAM
-# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-optimizer = optim.Adam(net.parameters())
+optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+# optimizer = optim.Adam(net.parameters())
 
 
 #######################################################################################################################################

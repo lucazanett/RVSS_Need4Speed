@@ -26,7 +26,6 @@ class SteerDataSet(Dataset):
     def __getitem__(self,idx):
         f = self.filenames[idx]        
         img = cv2.imread(f)[120:, :, :]
-        img = preprocess_image(img)
         if self.transform == None:
             img = self.totensor(img)
         else:
