@@ -14,13 +14,11 @@ from pibot_client import PiBot
 parser = argparse.ArgumentParser(description='PiBot client')
 parser.add_argument('--ip', type=str, default='localhost', help='IP address of PiBot')
 parser.add_argument('--im_num', type = int, default = 0)
-parser.add_argument('--folder', type = str, default = 'train')
+parser.add_argument('--folder', type = str, default = f'train_{time.time()}')
 args = parser.parse_args()
 
 if not os.path.exists(script_path+"/../data/"+args.folder):
-    data_path = script_path.replace('scripts', 'data')
-    print(f'Folder "{args.folder}" in path {data_path} does not exist. Please create it.')
-    exit()
+    os.mkdir(script_path+"/../data/"+args.folder)
 
 bot = PiBot(ip=args.ip)
 # stop the robot
@@ -78,14 +76,20 @@ try:
         img = bot.getImage()
         
         angle = np.clip(angle, -0.5, 0.5)
-        Kd = 15  # Base wheel speeds
-        Ka = 15  # Turn speed
+        Kd = 10  # Base wheel speeds
+        Ka = 10 # Turn speed
         left  = int(Kd + Ka*angle)
         right = int(Kd - Ka*angle)
         
         bot.setVelocity(left, right)
-
-        cv2.imwrite(script_path+"/../data/"+args.folder+"/"+str(im_number).zfill(6)+'%.2f'%angle+".jpg", img) 
+        enc = bot.getEncoders()
+        left_enc = enc[0]
+        right_enc = enc[1]
+        save_dir = os.path.join(script_path, "..", "data", args.folder)
+        filename = f"{im_number:06d}_{angle:.2f}_{left_enc}_{right_enc}.jpg"
+        full_path = os.path.join(save_dir, filename)
+        cv2.imwrite(full_path, img)
+        # cv2.imwrite(script_path+"/../data/"+args.folder+"/"+str(im_number).zfill(6)+'%.2f'%angle+".jpg", img) 
         im_number += 1
 
         time.sleep(0.1)  # Small delay to reduce CPU usage
