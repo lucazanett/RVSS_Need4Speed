@@ -20,7 +20,7 @@ In this mode, you will not have internet access while connected to the robot. Yo
     - Connect directly to the robot’s local Wi-Fi network (PenguinPi:xx.xx.xx) using the password PenguinPi.
 
 ## Check the connection!
-Navigate to the `RVSS` repository on your local machine and get ready to test the camera and motors on the PiBot. You will run a script that will check that the camera can take an image, and will turn on each motor, one at a time. Make sure you're holding your robot so it doesn't drive off a table. Make sure to enter the correct wlan IP address.
+Navigate to the `RVSS_Need4Speed` repository on your local machine and get ready to test the camera and motors on the PiBot. You will run a script that will check that the camera can take an image, and will turn on each motor, one at a time. Make sure you're holding your robot so it doesn't drive off a table. Make sure to enter the correct wlan IP address.
 
 ``` python PenguinPi-robot/software/python/client/test_camera_motors.py --ip xxx.xxx.xxx.xxx```
 
@@ -58,5 +58,7 @@ You should not need to do this at any point. Please check with one of the worksh
 
 In some cases the robot connection migth be laggy and unstable while using the `RVSS_Starlink` connection. you can modify the default behaviour of your robot by running the following:
 
-- `pixi run set_hotspot xxx.xxx.xx.x` to always set up the hotspot connection.
+- Use the command `pixi run set_hotspot ROBOT_IP`. Replace ROBOT_IP with the robot’s WLAN IP address (e.g., 192.168.1.10) to ensure the command is run in the robot.
+    - you will be asked to add the host so please enter `yes` in the console.
+    - When prompted, enter password: `PenguinPi`
 - `pixi run set_wifi` to recover the default `RVSS_Starlink` connection.
