@@ -6,7 +6,6 @@ import cv2
 import numpy as np
 from pynput import keyboard
 import argparse
-
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.abspath(os.path.join(script_path, "../PenguinPi-robot/software/python/client/")))
 from pibot_client import PiBot
@@ -21,6 +20,14 @@ if not os.path.exists(script_path+"/../data/"+args.folder):
     data_path = script_path.replace('scripts', 'data')
     print(f'Folder "{args.folder}" in path {data_path} does not exist. Please create it.')
     exit()
+else:
+    filenames = os.listdir(script_path+"/../data/"+args.folder)
+    if (len(filenames)) == 0:
+        exit()
+    filenames = [os.path.split(f)[-1].split(".jpg")[0][:6:] for f in filenames]
+    print(script_path+"/../data/"+args.folder)
+    filenames = sorted(filenames)
+    im_number_files = filenames[-1]
 
 bot = PiBot(ip=args.ip)
 # stop the robot
@@ -42,10 +49,11 @@ print("GO!")
 # Initialize variables
 angle = 0
 im_number = args.im_num
+if args.im_num == 0 and im_number_files is not None:
+    im_number = int(im_number_files)
 continue_running = True
-
 def on_press(key):
-    global angle, continue_running
+    global angle, continue_running, record
     try:
         if key == keyboard.Key.up:
             angle = 0
@@ -62,6 +70,7 @@ def on_press(key):
             print("stop")
             bot.setVelocity(0, 0)
             continue_running = False
+        
             # return False  # Stop listener
 
     except Exception as e:
@@ -78,8 +87,11 @@ try:
         img = bot.getImage()
         
         angle = np.clip(angle, -0.5, 0.5)
-        Kd = 15  # Base wheel speeds
-        Ka = 15  # Turn speed
+
+
+        print("CURRENT ANGLE : ", angle)
+        Kd = 10 # Base wheel speeds
+        Ka = 10  # Turn speed
         left  = int(Kd + Ka*angle)
         right = int(Kd - Ka*angle)
         

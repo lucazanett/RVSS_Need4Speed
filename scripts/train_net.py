@@ -11,15 +11,15 @@ import numpy as np
 import sklearn.metrics as metrics
 
 import matplotlib.pyplot as plt
-
+from torch.utils.data import random_split
 from steerDS import SteerDataSet
 
 #######################################################################################################################################
 ####     This tutorial is adapted from the PyTorch "Train a Classifier" tutorial                                                   ####
 ####     Please review here if you get stuck: https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html                   ####
 #######################################################################################################################################
-torch.manual_seed(0)
-
+# torch.manual_seed(0)
+print(torch.rand(1))
 #Helper function for visualising images in our dataset
 def imshow(img):
     img = img / 2 + 0.5 #unnormalize
@@ -44,16 +44,46 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 ###################
 ## Train dataset ##
 ###################
+# 1. Load the FULL dataset first
+full_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_night'), '.jpg', transform)
 
-train_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_starter'), '.jpg', transform)
+# 2. Calculate the split sizes (80% Train, 20% Validation)
+train_size = int(0.8 * len(full_ds))
+val_size = len(full_ds) - train_size
+
+# 3. Create the random split
+# This automatically shuffles and assigns images to one of the two sets
+train_ds, val_ds = random_split(full_ds, [train_size, val_size])
+train_original_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_starter'), '.jpg', transform)
 print("The train dataset contains %d images " % len(train_ds))
 
 #data loader nicely batches images for the training process and shuffles (if desired)
 trainloader = DataLoader(train_ds,batch_size=8,shuffle=True)
+trainloader_original = DataLoader(train_original_ds,batch_size=8,shuffle=True)
 all_y = []
 for S in trainloader:
     im, y = S    
     all_y += y.tolist()
+
+
+print(f'Input to network shape: {im.shape}')
+
+#visualise the distribution of GT labels
+all_lbls, all_counts = np.unique(all_y, return_counts = True)
+class_counts = np.bincount(all_y)
+num_classes = len(class_counts)
+total_samples = len(all_y)
+plt.bar(all_lbls, all_counts, width = (all_lbls[1]-all_lbls[0])/2)
+plt.xlabel('Labels')
+plt.ylabel('Counts')
+plt.xticks(all_lbls)
+plt.title('Training Dataset')
+plt.show()
+all_y = []
+for S in trainloader_original:
+    im, y = S    
+    all_y += y.tolist()
+
 
 print(f'Input to network shape: {im.shape}')
 
@@ -63,7 +93,7 @@ plt.bar(all_lbls, all_counts, width = (all_lbls[1]-all_lbls[0])/2)
 plt.xlabel('Labels')
 plt.ylabel('Counts')
 plt.xticks(all_lbls)
-plt.title('Training Dataset')
+plt.title('Training original Dataset')
 plt.show()
 
 # visualise some images and print labels -- check these seem reasonable
@@ -76,7 +106,7 @@ imshow(torchvision.utils.make_grid(example_ims))
 ## Validation dataset ##
 ########################
 
-val_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'val_starter'), '.jpg', transform)
+val_orginal_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'val_starter'), '.jpg', transform)
 print("The train dataset contains %d images " % len(val_ds))
 
 #data loader nicely batches images for the training process and shuffles (if desired)
@@ -96,6 +126,23 @@ plt.ylabel('Counts')
 plt.xticks(all_lbls)
 plt.title('Validation Dataset')
 plt.show()
+val_original_loader = DataLoader(val_orginal_ds,batch_size=1)
+all_y = []
+for S in val_original_loader:
+    im, y = S    
+    all_y += y.tolist()
+
+
+print(f'Input to network shape: {im.shape}')
+
+#visualise the distribution of GT labels
+all_lbls, all_counts = np.unique(all_y, return_counts = True)
+plt.bar(all_lbls, all_counts, width = (all_lbls[1]-all_lbls[0])/2)
+plt.xlabel('Labels')
+plt.ylabel('Counts')
+plt.xticks(all_lbls)
+plt.title('VAlidation original Dataset')
+plt.show()
 
 #######################################################################################################################################
 ####     INITIALISE OUR NETWORK                                                                                                    ####
@@ -110,10 +157,11 @@ class Net(nn.Module):
         self.pool = nn.MaxPool2d(2, 2)
 
         self.fc1 = nn.Linear(1344, 256)
-        self.fc2 = nn.Linear(256, 5)
+        self.fc2 = nn.Linear(256,128)
+        self.fc3 = nn.Linear(128, 5)
 
         self.relu = nn.ReLU()
-
+        self.dropout = nn.Dropout(0.3)
 
     def forward(self, x):
         #extract features with convolutional layers
@@ -124,21 +172,30 @@ class Net(nn.Module):
         #linear layer for classification
         x = self.fc1(x)
         x = self.relu(x)
+        x = self.dropout(x)
         x = self.fc2(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.fc3(x)
        
         return x
     
 
 net = Net()
 
+
 #######################################################################################################################################
 ####     INITIALISE OUR LOSS FUNCTION AND OPTIMISER                                                                                ####
 #######################################################################################################################################
 
 #for classification tasks
+
+
+
 criterion = nn.CrossEntropyLoss()
 #You could use also ADAM
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+# optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
+optimizer = optim.Adam(net.parameters())
 
 
 #######################################################################################################################################
@@ -147,7 +204,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 losses = {'train': [], 'val': []}
 accs = {'train': [], 'val': []}
 best_acc = 0
-for epoch in range(10):  # loop over the dataset multiple times
+for epoch in range(20):  # loop over the dataset multiple times
 
     epoch_loss = 0.0
     correct = 0
@@ -177,8 +234,8 @@ for epoch in range(10):  # loop over the dataset multiple times
     accs['train'] += [100.*correct/total]
  
     # prepare to count predictions for each class
-    correct_pred = {classname: 0 for classname in val_ds.class_labels}
-    total_pred = {classname: 0 for classname in val_ds.class_labels}
+    correct_pred = {classname: 0 for classname in val_ds.dataset.class_labels}
+    total_pred = {classname: 0 for classname in val_ds.dataset.class_labels}
 
     # again no gradients needed
     val_loss = 0
@@ -193,8 +250,8 @@ for epoch in range(10):  # loop over the dataset multiple times
             # collect the correct predictions for each class
             for label, prediction in zip(labels, predictions):
                 if label == prediction:
-                    correct_pred[val_ds.class_labels[label.item()]] += 1
-                total_pred[val_ds.class_labels[label.item()]] += 1
+                    correct_pred[val_ds.dataset.class_labels[label.item()]] += 1
+                total_pred[val_ds.dataset.class_labels[label.item()]] += 1
 
     # print accuracy for each class
     class_accs = []
@@ -246,8 +303,8 @@ with torch.no_grad():
 print(f'Accuracy of the network on the {total} test images: {100 * correct // total} %')
 
 # prepare to count predictions for each class
-correct_pred = {classname: 0 for classname in val_ds.class_labels}
-total_pred = {classname: 0 for classname in val_ds.class_labels}
+correct_pred = {classname: 0 for classname in val_ds.dataset.class_labels}
+total_pred = {classname: 0 for classname in val_ds.dataset.class_labels}
 
 # again no gradients needed
 actual = []
@@ -264,12 +321,12 @@ with torch.no_grad():
         # collect the correct predictions for each class
         for label, prediction in zip(labels, predictions):
             if label == prediction:
-                correct_pred[val_ds.class_labels[label.item()]] += 1
-            total_pred[val_ds.class_labels[label.item()]] += 1
+                correct_pred[val_ds.dataset.class_labels[label.item()]] += 1
+            total_pred[val_ds.dataset.class_labels[label.item()]] += 1
 
 cm = metrics.confusion_matrix(actual, predicted, normalize = 'true')
 disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm,
-                              display_labels=val_ds.class_labels)
+                              display_labels=val_ds.dataset.class_labels)
 disp.plot()
 plt.show()
 

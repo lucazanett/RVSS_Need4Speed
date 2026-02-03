@@ -9,61 +9,149 @@ import numpy as np
 import torch
 import torch.nn as nn
 import argparse
-import torch.nn as nn
 import torch.nn.functional as F
 import torchvision.transforms as transforms
+from PIL import Image
+import matplotlib.pyplot as plt
+# Setup Paths
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.abspath(os.path.join(script_path, "../PenguinPi-robot/software/python/client/")))
 from pibot_client import PiBot
 
+# --- 1. DEFINE THE NETWORK ARCHITECTURE (Must match training exactly) ---
+class Net(nn.Module):
+    def __init__(self):
+        super().__init__()
+        self.conv1 = nn.Conv2d(3, 6, 5)
+        self.conv2 = nn.Conv2d(6, 16, 5)
 
+        self.pool = nn.MaxPool2d(2, 2)
+
+        self.fc1 = nn.Linear(1344, 256)
+        self.fc2 = nn.Linear(256,128)
+        self.fc3 = nn.Linear(128, 5)
+
+        self.relu = nn.ReLU()
+        self.dropout = nn.Dropout(0.3)
+
+    def forward(self, x):
+        #extract features with convolutional layers
+        x = self.pool(self.relu(self.conv1(x)))
+        x = self.pool(self.relu(self.conv2(x)))
+        x = torch.flatten(x, 1) # flatten all dimensions except batch
+        
+        #linear layer for classification
+        x = self.fc1(x)
+        x = self.relu(x)
+        # x = self.dropout(x)
+        x = self.fc2(x)
+        x = self.relu(x)
+        # x = self.dropout(x)
+        x = self.fc3(x)
+       
+        return x
+    
+
+
+# --- 2. CONFIGURATION ---
 parser = argparse.ArgumentParser(description='PiBot client')
 parser.add_argument('--ip', type=str, default='localhost', help='IP address of PiBot')
+parser.add_argument('--model', type=str, default='steer_net.pth', help='Path to model file')
 args = parser.parse_args()
 
 bot = PiBot(ip=args.ip)
-
-# stop the robot 
 bot.setVelocity(0, 0)
 
-#INITIALISE NETWORK HERE
+# --- 3. LOAD NETWORK ---
+print(f"Loading model from {args.model}...")
+device = torch.device('cpu') # Robot usually runs on CPU
+model = Net()
+try:
+    # Load weights (map_location ensures it works even if trained on GPU)
+    model.load_state_dict(torch.load(args.model, map_location=device))
+    model.eval() # Set to evaluation mode (disable dropout, etc)
+    print("Model loaded successfully!")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    sys.exit(1)
 
-#LOAD NETWORK WEIGHTS HERE
+# --- 4. DEFINE TRANSFORMS (Must match training) ---
+# Note: We assume the robot camera gives a Numpy array. 
+# ToTensor() converts (H, W, C) -> (C, H, W) and scales 0-255 to 0.0-1.0
+preprocess = transforms.Compose([
+    transforms.ToTensor(),
+    transforms.Resize((40, 60)),
+    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
+])
 
-#countdown before beginning
+# --- 5. CLASS MAPPING ---
+# You need to map the output Class ID (0, 1, 2...) to a Steering Angle.
+# ADJUST THESE VALUES based on your training labels!
+# Example assumption: 5 classes -> [Hard Left, Left, Straight, Right, Hard Right]
+class_to_angle = {
+    0: -0.5, # Hard Left
+    1: -0.2, # Slight Left
+    2:  0.0, # Straight
+    3:  0.2, # Slight Right
+    4:  0.5  # Hard Right
+}
+
+# Countdown
 print("Get ready...")
 time.sleep(1)
-print("3")
-time.sleep(1)
-print("2")
-time.sleep(1)
-print("1")
-time.sleep(1)
 print("GO!")
-
+prev_angle = 0.0
 try:
-    angle = 0
     while True:
-        # get an image from the the robot
-        im = bot.getImage()
+        # 1. Get image from robot
+        im_np = bot.getImage()[140:, :, :]
 
-        #TO DO: apply any necessary image transforms
+        # plt.imshow(im_np)
+        # plt.show()
 
-        #TO DO: pass image through network get a prediction
-
-        #TO DO: convert prediction into a meaningful steering angle
-
-        #TO DO: check for stop signs?
         
-        angle = 0
+        
+        # 2. Preprocess
+        # PiBot image is usually a Numpy array (H,W,C). 
+        # Transform expects a PIL Image or Numpy array.
+        input_tensor = preprocess(im_np)
+        
+        # Add batch dimension: [3, 40, 60] -> [1, 3, 40, 60]
+        input_tensor = input_tensor.unsqueeze(0)
 
-        Kd = 20 #base wheel speeds, increase to go faster, decrease to go slower
-        Ka = 20 #how fast to turn when given an angle
+        # 3. Inference
+        with torch.no_grad():
+            output = model(input_tensor)
+            
+            # Get the class with the highest score
+            # prediction is the index (e.g., 2)
+            _, prediction = torch.max(output, 1)
+            class_id = prediction.item()
+
+        # 4. Map to Angle
+        angle = class_to_angle.get(class_id, 0.0) # Default to 0 if unknown class
+        # delta = angle - prev_angle
+        # delta = np.clip(delta,-2,2)
+        # angle = prev_angle + delta
+        # prev_angle = angle
+        print(f"Pred Class: {class_id} | Angle: {angle}")
+
+        # 5. Control Logic
+        Kd = 10# Base speed
+        Ka = 10 # Turning aggressiveness
+        
+        # Optional: Slow down for hard turns (Simple Dynamic Throttle)
+        # if abs(angle) > 0.3:
+        #     Kd = 10 # Slow down for corners
+        
         left  = int(Kd + Ka*angle)
         right = int(Kd - Ka*angle)
             
         bot.setVelocity(left, right)
-            
         
+        # Simple sleep to match camera rate (~10-20fps)
+        time.sleep(0.05) 
+            
 except KeyboardInterrupt:    
     bot.setVelocity(0, 0)
+    print("\nStopping robot.")
