@@ -9,3 +9,5 @@
 # WSL
 *:Zone.Identifier
 *.DS_Store
+*.zip
+*.pth
