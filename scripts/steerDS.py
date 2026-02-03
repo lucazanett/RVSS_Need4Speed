@@ -5,7 +5,7 @@ from torch.utils.data import Dataset
 import cv2
 from glob import glob
 from os import path
-
+from preprocess import preprocess_image
 class SteerDataSet(Dataset):
     
     def __init__(self,root_folder,img_ext = ".jpg" , transform=None):
@@ -26,7 +26,7 @@ class SteerDataSet(Dataset):
     def __getitem__(self,idx):
         f = self.filenames[idx]        
         img = cv2.imread(f)[120:, :, :]
-        
+        img = preprocess_image(img)
         if self.transform == None:
             img = self.totensor(img)
         else:
