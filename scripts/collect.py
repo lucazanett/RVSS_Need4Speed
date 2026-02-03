@@ -69,13 +69,16 @@ def on_press(key):
 # Start the listener
 listener = keyboard.Listener(on_press=on_press)
 listener.start()
-
+init_encs = bot.getEncoders()
+prev_left = init_encs[0]
+prev_right = init_encs[1]
 try:
     while continue_running:
         # Get an image from the robot
         img = bot.getImage()
         
         angle = np.clip(angle, -0.5, 0.5)
+        print("CURRENT ANGLE : ",angle)
         Kd = 10  # Base wheel speeds
         Ka = 10 # Turn speed
         left  = int(Kd + Ka*angle)
@@ -85,9 +88,13 @@ try:
         enc = bot.getEncoders()
         left_enc = enc[0]
         right_enc = enc[1]
+        delta_left = left_enc - prev_left
+        delta_right = right_enc  - prev_right
         save_dir = os.path.join(script_path, "..", "data", args.folder)
-        filename = f"{im_number:06d}_{angle:.2f}_{left_enc}_{right_enc}.jpg"
+        filename = f"{im_number:06d}_{angle:.2f}_{delta_left}_{delta_right}.jpg"
         full_path = os.path.join(save_dir, filename)
+        prev_left = left_enc
+        prev_right = right_enc
         cv2.imwrite(full_path, img)
         # cv2.imwrite(script_path+"/../data/"+args.folder+"/"+str(im_number).zfill(6)+'%.2f'%angle+".jpg", img) 
         im_number += 1
