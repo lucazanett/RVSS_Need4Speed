@@ -34,6 +34,7 @@ def imshow(img):
 ####     SETTING UP THE DATASET                                                                                                    ####
 #######################################################################################################################################
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print("RUNNING ON ", device)
 #transformations for raw images before going to CNN
 transform = transforms.Compose([                                PreProcessImage(),
 
@@ -242,7 +243,7 @@ for epoch in range(30):  # loop over the dataset multiple times
     val_loss = 0
     with torch.no_grad():
         for data in valloader:
-            images, labels = data
+            images, labels = data[0].to(device), data[1].to(device) 
             outputs = net(images)
             _, predictions = torch.max(outputs, 1)
             loss = criterion(outputs, labels)
@@ -311,7 +312,7 @@ actual = []
 predicted = []
 with torch.no_grad():
     for data in valloader:
-        images, labels = data
+        images, labels = data[0].to(device), data[1].to(device) 
         outputs = net(images)
         _, predictions = torch.max(outputs, 1)
 
