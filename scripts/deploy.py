@@ -14,6 +14,12 @@ import torchvision.transforms as transforms
 from PIL import Image
 import matplotlib.pyplot as plt
 from preprocess import PreProcessImage
+
+
+WINDOW_NAME = "PiBot Policy Viewer"
+cv2.namedWindow(WINDOW_NAME, cv2.WINDOW_NORMAL)
+
+
 # Setup Paths
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.abspath(os.path.join(script_path, "../PenguinPi-robot/software/python/client/")))
@@ -106,9 +112,9 @@ prev_angle = 0.0
 steps = 0
 try:
     while True:
-        steps+=1
-        if steps % 2 == 0:
-            continue
+        # steps+=1
+        # if steps % 2 == 0:
+        #     continue
         # 1. Get image from robot
         im_np = bot.getImage()[120:, :, :]
 
@@ -152,12 +158,37 @@ try:
         
         left  = int(Kd + Ka*angle)
         right = int(Kd - Ka*angle)
+
+        ## --- LIVE VIEW (overlay prediction on image) ---
+        disp = im_np.copy()  # im_np is already cropped: [120:, :, :]
+        # im_np is BGR (from cv2 / robot), so cv2.imshow will display correctly.
+
+        text1 = f"class={class_id}  angle={angle:+.2f}"
+        text2 = f"left={left:3d}  right={right:3d}"
+
+        # Draw a filled rectangle behind text for readability
+        cv2.rectangle(disp, (0, 0), (disp.shape[1], 60), (0, 0, 0), thickness=-1)
+
+        cv2.putText(disp, text1, (10, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
+        cv2.putText(disp, text2, (10, 50),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2, cv2.LINE_AA)
+
+        cv2.imshow(WINDOW_NAME, disp)
+
+        # Press 'q' to quit cleanly
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
+        ##
             
         bot.setVelocity(left, right)
+
         
         # Simple sleep to match camera rate (~10-20fps)
         time.sleep(0.05) 
             
 except KeyboardInterrupt:    
     bot.setVelocity(0, 0)
+    cv2.destroyAllWindows()
     print("\nStopping robot.")
