@@ -33,7 +33,7 @@ def imshow(img):
 #######################################################################################################################################
 ####     SETTING UP THE DATASET                                                                                                    ####
 #######################################################################################################################################
-
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 #transformations for raw images before going to CNN
 transform = transforms.Compose([                                PreProcessImage(),
 
@@ -48,7 +48,7 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 ## Train dataset ##
 ###################
 # 1. Load the FULL dataset first
-full_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_night'), '.jpg', transform)
+full_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_3'), '.jpg', transform)
 
 # 2. Calculate the split sizes (80% Train, 20% Validation)
 train_size = int(0.8 * len(full_ds))
@@ -184,8 +184,7 @@ class Net(nn.Module):
         return x
     
 
-net = Net()
-
+net = Net().to(device)
 
 #######################################################################################################################################
 ####     INITIALISE OUR LOSS FUNCTION AND OPTIMISER                                                                                ####
@@ -214,8 +213,7 @@ for epoch in range(30):  # loop over the dataset multiple times
     total = 0
     for i, data in enumerate(trainloader, 0):
         # get the inputs; data is a list of [inputs, labels]
-        inputs, labels = data
-
+        inputs, labels = data[0].to(device), data[1].to(device)
         # zero the parameter gradients
         optimizer.zero_grad()
 
@@ -294,8 +292,7 @@ total = 0
 # since we're not training, we don't need to calculate the gradients for our outputs
 with torch.no_grad():
     for data in valloader:
-        images, labels = data
-        # calculate outputs by running images through the network
+        images, labels = data[0].to(device), data[1].to(device)        # calculate outputs by running images through the network
         outputs = net(images)
         
         # the class with the highest energy is what we choose as prediction

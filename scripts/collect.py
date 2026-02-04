@@ -22,12 +22,14 @@ if not os.path.exists(script_path+"/../data/"+args.folder):
     exit()
 else:
     filenames = os.listdir(script_path+"/../data/"+args.folder)
-    if (len(filenames)) == 0:
-        exit()
-    filenames = [os.path.split(f)[-1].split(".jpg")[0][:6:] for f in filenames]
-    print(script_path+"/../data/"+args.folder)
-    filenames = sorted(filenames)
-    im_number_files = filenames[-1]
+    if (len(filenames)) != 0:
+        
+        filenames = [os.path.split(f)[-1].split(".jpg")[0][:6:] for f in filenames]
+        print(script_path+"/../data/"+args.folder)
+        filenames = sorted(filenames)
+        im_number_files = filenames[-1]
+    else:
+        im_number_files = None
 
 bot = PiBot(ip=args.ip)
 # stop the robot
@@ -85,8 +87,25 @@ try:
     while continue_running:
         # Get an image from the robot
         img = bot.getImage()
-        
         angle = np.clip(angle, -0.5, 0.5)
+        font = cv2.FONT_HERSHEY_SIMPLEX
+        org = (20, 50)       # Coordinates: (x, y) from top-left
+        fontScale = 1
+        color = (0, 255, 0)  # Green in BGR
+        thickness = 2
+        text = f"Angle: {angle:.2f}"
+        display_img = img.copy()
+        cv2.putText(display_img, text, org, font, fontScale, color, thickness, cv2.LINE_AA)
+        cv2.imshow("PiBot View", display_img)
+
+        # 2. Define text properties
+
+        # This is required to refresh the image window
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            continue_running = False
+        # --------------------------
+
+        
 
 
         print("CURRENT ANGLE : ", angle)
@@ -98,6 +117,7 @@ try:
         bot.setVelocity(left, right)
 
         cv2.imwrite(script_path+"/../data/"+args.folder+"/"+str(im_number).zfill(6)+'%.2f'%angle+".jpg", img) 
+        cv2.imwrite(script_path+"/../data/"+args.folder+"_displayed"+"/"+str(im_number).zfill(6)+'%.2f'%angle+".jpg", display_img)
         im_number += 1
 
         time.sleep(0.1)  # Small delay to reduce CPU usage
