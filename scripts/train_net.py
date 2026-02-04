@@ -35,10 +35,32 @@ def imshow(img):
 #######################################################################################################################################
 
 #transformations for raw images before going to CNN
-transform = transforms.Compose([transforms.ToTensor(),
-                                transforms.Resize((40, 60)),
-                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                                ])
+
+# transform = transforms.Compose([
+#     transforms.ToPILImage(),
+#     transforms.Resize((40, 60)),
+#     transforms.ToTensor(),
+#     transforms.Normalize((0.5,)*3, (0.5,)*3),
+# ])
+
+
+transform = transforms.Compose([
+    transforms.ToPILImage(),
+    transforms.Resize((40, 60)),
+    transforms.ColorJitter(brightness=0.15, contrast=0.3),
+    transforms.RandomApply([transforms.GaussianBlur(3)], p=0.2),
+    transforms.ToTensor(),
+    transforms.Normalize((0.5,)*3, (0.5,)*3),
+])
+
+# transform = transforms.Compose([transforms.ToPILImage(),
+#     transforms.Resize((40, 60)),
+#     transforms.Grayscale(num_output_channels=3),
+#     transforms.ColorJitter(brightness=0.15, contrast=0.3),
+#     transforms.RandomAffine(degrees=0, translate=(0.05,0.05), scale=(0.98, 1.02)),
+#     transforms.ToTensor(),
+#     transforms.Normalize((0.5,)*3, (0.5,)*3),
+# ])
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 
@@ -191,11 +213,10 @@ class Net(nn.Module):
         self.pool = nn.MaxPool2d(2, 2)
 
         self.fc1 = nn.Linear(1344, 256)
-        self.fc2 = nn.Linear(256,128)
-        self.fc3 = nn.Linear(128, 5)
+        self.fc2 = nn.Linear(256, 5)
 
         self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.3)
+
 
     def forward(self, x):
         #extract features with convolutional layers
@@ -206,17 +227,76 @@ class Net(nn.Module):
         #linear layer for classification
         x = self.fc1(x)
         x = self.relu(x)
-        x = self.dropout(x)
         x = self.fc2(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.fc3(x)
        
         return x
     
 
 net = Net()
 
+# class Net(nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#         self.conv1 = nn.Conv2d(3, 6, 5)
+#         self.conv2 = nn.Conv2d(6, 16, 5)
+
+#         self.pool = nn.MaxPool2d(2, 2)
+
+#         self.fc1 = nn.Linear(1344, 256)
+#         self.fc2 = nn.Linear(256,128)
+#         self.fc3 = nn.Linear(128, 5)
+
+#         self.relu = nn.ReLU()
+#         self.dropout = nn.Dropout(0.3)
+
+#     def forward(self, x):
+#         #extract features with convolutional layers
+#         x = self.pool(self.relu(self.conv1(x)))
+#         x = self.pool(self.relu(self.conv2(x)))
+#         x = torch.flatten(x, 1) # flatten all dimensions except batch
+        
+#         #linear layer for classification
+#         x = self.fc1(x)
+#         x = self.relu(x)
+#         x = self.dropout(x)
+#         x = self.fc2(x)
+#         x = self.relu(x)
+#         x = self.dropout(x)
+#         x = self.fc3(x)
+       
+#         return x
+    
+
+# net = Net()
+
+# class Net(nn.Module):
+#     def __init__(self):
+#         super().__init__()
+#         self.conv = nn.Sequential(
+#             nn.Conv2d(3, 8, 5),
+#             nn.GroupNorm(4, 8),
+#             nn.ReLU(),
+#             nn.MaxPool2d(2,2),
+
+#             nn.Conv2d(8, 16, 5),
+#             nn.GroupNorm(4, 16),
+#             nn.ReLU(),
+#             nn.MaxPool2d(2,2),
+#         )
+
+#         self.head = nn.Sequential(
+#             nn.Flatten(),
+#             nn.Linear(1344, 128),
+#             nn.ReLU(),
+#             nn.Dropout(0.2),
+#             nn.Linear(128, 5),
+#         )
+
+#     def forward(self, x):
+#         x = self.conv(x)
+#         return self.head(x)
+    
+# net = Net()
 
 #######################################################################################################################################
 ####     INITIALISE OUR LOSS FUNCTION AND OPTIMISER                                                                                ####
