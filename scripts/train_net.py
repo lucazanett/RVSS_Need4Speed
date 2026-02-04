@@ -1,6 +1,7 @@
+from random import random
 import torch
 import torchvision.transforms as transforms
-from torch.utils.data import DataLoader
+from torch.utils.data import DataLoader, random_split, WeightedRandomSampler, Subset
 import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
@@ -45,8 +46,88 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 ## Train dataset ##
 ###################
 
-train_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_starter'), '.jpg', transform)
+# splitting randomly into training and validation
+
+dataset = SteerDataSet(os.path.join(script_path, '..', 'dataC2'), '.jpg', transform)
+
+n_total = len(dataset)
+n_train = int(0.8 * n_total)
+n_val   = n_total - n_train
+
+train_ds, val_ds = random_split(dataset, [n_train, n_val],generator=torch.Generator().manual_seed(42))
+
+train_ds.class_labels = dataset.class_labels
+val_ds.class_labels = dataset.class_labels
+
+#train_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_starter'), '.jpg', transform)
 print("The train dataset contains %d images " % len(train_ds))
+
+
+## extract labels from training subset
+#train_labels = [train_ds[i][1] for i in range(len(train_ds))]
+
+#####
+
+# from collections import defaultdict
+
+# indices_by_class = defaultdict(list)
+
+# for subset_idx, label in enumerate(train_labels):
+#     indices_by_class[label].append(train_ds.indices[subset_idx])
+
+# label_counts = [len(v) for v in indices_by_class.values()]
+
+# import heapq
+# target_count = heapq.nsmallest(3, (len(v) for v in indices_by_class.values()))[-1]
+
+# import random
+
+# new_indices = []
+# for cls, inds in indices_by_class.items():
+#     random.shuffle(inds)
+#     if len(inds) > target_count:
+#         # undersample big classes
+#         new_indices.extend(inds[:target_count])
+#     else:
+#         # keep all samples for small classes (including the two smallest)
+#         new_indices.extend(inds)
+
+# balanced_train_ds = Subset(train_ds.dataset, new_indices)
+
+# trainloader = DataLoader(
+#     balanced_train_ds,
+#     batch_size=8,
+#     shuffle=True
+# )
+#####
+
+# # count samples per class
+# class_counts = np.bincount(train_labels)
+# class_weights = 1.0 / class_counts
+
+# # weight per sample
+# sample_weights = [class_weights[label] for label in train_labels]
+
+# sampler = WeightedRandomSampler(
+#     weights=sample_weights,
+#     num_samples=len(sample_weights),
+#     replacement=True
+# )
+
+# trainloader = DataLoader(
+#     train_ds,
+#     batch_size=8,
+#     sampler=sampler
+# )
+
+# # validation loader (no sampler)
+# valloader = DataLoader(
+#     val_ds,
+#     batch_size=1,
+#     shuffle=False
+# )
+
+
 
 #data loader nicely batches images for the training process and shuffles (if desired)
 trainloader = DataLoader(train_ds,batch_size=8,shuffle=True)
@@ -76,7 +157,7 @@ imshow(torchvision.utils.make_grid(example_ims))
 ## Validation dataset ##
 ########################
 
-val_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'val_starter'), '.jpg', transform)
+#val_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'val_starter'), '.jpg', transform)
 print("The train dataset contains %d images " % len(val_ds))
 
 #data loader nicely batches images for the training process and shuffles (if desired)
@@ -110,10 +191,11 @@ class Net(nn.Module):
         self.pool = nn.MaxPool2d(2, 2)
 
         self.fc1 = nn.Linear(1344, 256)
-        self.fc2 = nn.Linear(256, 5)
+        self.fc2 = nn.Linear(256,128)
+        self.fc3 = nn.Linear(128, 5)
 
         self.relu = nn.ReLU()
-
+        self.dropout = nn.Dropout(0.3)
 
     def forward(self, x):
         #extract features with convolutional layers
@@ -124,18 +206,24 @@ class Net(nn.Module):
         #linear layer for classification
         x = self.fc1(x)
         x = self.relu(x)
+        x = self.dropout(x)
         x = self.fc2(x)
+        x = self.relu(x)
+        x = self.dropout(x)
+        x = self.fc3(x)
        
         return x
     
 
 net = Net()
 
+
 #######################################################################################################################################
 ####     INITIALISE OUR LOSS FUNCTION AND OPTIMISER                                                                                ####
 #######################################################################################################################################
 
 #for classification tasks
+#criterion = nn.CrossEntropyLoss()
 criterion = nn.CrossEntropyLoss()
 #You could use also ADAM
 optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
