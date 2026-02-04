@@ -48,6 +48,12 @@ TURN_SPEED = 10      # speed when turning
 SAVE_DT = 0.10       # seconds (10 Hz)
 
 # --------------------------
+# Save-thinning parameters (NEW)
+# --------------------------
+STRAIGHT_EPS = 0.05        # |angle| < this is "straight-ish"
+KEEP_STRAIGHT_EVERY = 5    # keep 1 in 5 straight frames
+
+# --------------------------
 # State variables
 # --------------------------
 steer_cmd = 0.0      # desired steering from keys
@@ -121,13 +127,21 @@ try:
 
         left = int(Kd + Ka * angle)
         right = int(Kd - Ka * angle)
-
         bot.setVelocity(left, right)
 
-        # 4) save image with label in filename
-        fname = f"{im_number:06d}{angle:+.2f}.jpg"
-        cv2.imwrite(os.path.join(data_dir, fname), img)
-        im_number += 1
+        # --------------------------
+        # 4) SAVE RULE OF THUMB (NEW)
+        #    - keep ALL turning frames
+        #    - thin straight frames (1 in N)
+        # --------------------------
+        keep = True
+        if abs(angle) < STRAIGHT_EPS:
+            keep = (im_number % KEEP_STRAIGHT_EVERY == 0)
+
+        if keep:
+            fname = f"{im_number:06d}{angle:+.2f}.jpg"
+            cv2.imwrite(os.path.join(data_dir, fname), img)
+            im_number += 1
 
         time.sleep(SAVE_DT)
 
@@ -135,6 +149,7 @@ finally:
     bot.setVelocity(0, 0)
     listener.stop()
     print("Script ended")
+
 
 
 '''
