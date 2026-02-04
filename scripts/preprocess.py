@@ -7,7 +7,8 @@ import cv2
 class PreProcessImage(object):
 
     
-    def __call__(self, *args, **kwds):
+    def __call__(self, image):
+        # return image
         image = np.array(image) 
 
 
@@ -17,6 +18,10 @@ class PreProcessImage(object):
         
         # C. GAUSSIAN BLUR
         image = cv2.GaussianBlur(image, (3, 3), 0)
+        threshold1 = 80
+        threshold2 = 80
+        # image = cv2.Canny(image, threshold1, threshold2)
+
         
         # D. RESIZE
         # Resize to NVIDIA standard (200 width, 66 height)

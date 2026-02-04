@@ -13,6 +13,7 @@ import torch.nn.functional as F
 import torchvision.transforms as transforms
 from PIL import Image
 import matplotlib.pyplot as plt
+from preprocess import PreProcessImage
 # Setup Paths
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.abspath(os.path.join(script_path, "../PenguinPi-robot/software/python/client/")))
@@ -56,7 +57,7 @@ class Net(nn.Module):
 # --- 2. CONFIGURATION ---
 parser = argparse.ArgumentParser(description='PiBot client')
 parser.add_argument('--ip', type=str, default='localhost', help='IP address of PiBot')
-parser.add_argument('--model', type=str, default='steer_net.pth', help='Path to model file')
+parser.add_argument('--model', type=str, default='steer_net_yuv.pth', help='Path to model file')
 args = parser.parse_args()
 
 bot = PiBot(ip=args.ip)
@@ -79,6 +80,7 @@ except Exception as e:
 # Note: We assume the robot camera gives a Numpy array. 
 # ToTensor() converts (H, W, C) -> (C, H, W) and scales 0-255 to 0.0-1.0
 preprocess = transforms.Compose([
+    PreProcessImage(),
     transforms.ToTensor(),
     transforms.Resize((40, 60)),
     transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
@@ -101,10 +103,14 @@ print("Get ready...")
 time.sleep(1)
 print("GO!")
 prev_angle = 0.0
+steps = 0
 try:
     while True:
+        steps+=1
+        if steps % 2 == 0:
+            continue
         # 1. Get image from robot
-        im_np = bot.getImage()[140:, :, :]
+        im_np = bot.getImage()[120:, :, :]
 
         # plt.imshow(im_np)
         # plt.show()

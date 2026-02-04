@@ -13,7 +13,7 @@ import sklearn.metrics as metrics
 import matplotlib.pyplot as plt
 from torch.utils.data import random_split
 from steerDS import SteerDataSet
-from preprocess import preprocess_image
+from preprocess import PreProcessImage
 
 #######################################################################################################################################
 ####     This tutorial is adapted from the PyTorch "Train a Classifier" tutorial                                                   ####
@@ -35,8 +35,9 @@ def imshow(img):
 #######################################################################################################################################
 
 #transformations for raw images before going to CNN
-transform = transforms.Compose([transforms.ToTensor(),
-                                preprocess_image(),
+transform = transforms.Compose([                                PreProcessImage(),
+
+    transforms.ToTensor(),
                                 transforms.Resize((40, 60)),
                                 transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
                                 ])
@@ -206,7 +207,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 losses = {'train': [], 'val': []}
 accs = {'train': [], 'val': []}
 best_acc = 0
-for epoch in range(20):  # loop over the dataset multiple times
+for epoch in range(30):  # loop over the dataset multiple times
 
     epoch_loss = 0.0
     correct = 0
