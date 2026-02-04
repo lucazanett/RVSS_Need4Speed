@@ -58,6 +58,7 @@ class Net(nn.Module):
 parser = argparse.ArgumentParser(description='PiBot client')
 parser.add_argument('--ip', type=str, default='localhost', help='IP address of PiBot')
 parser.add_argument('--model', type=str, default='steer_net_yuv.pth', help='Path to model file')
+parser.add_argument('--throttle_control',type=bool,default=False)
 args = parser.parse_args()
 
 bot = PiBot(ip=args.ip)
@@ -102,6 +103,7 @@ class_to_angle = {
 print("Get ready...")
 time.sleep(1)
 print("GO!")
+print("throttle control is ", args.throttle_control)
 prev_angle = 0.0
 steps = 0
 try:
@@ -141,16 +143,18 @@ try:
         # angle = prev_angle + delta
         # prev_angle = angle
         print(f"Pred Class: {class_id} | Angle: {angle}")
-
+        
         # 5. Control Logic
-        Kd = 10# Base speed
+        Kd = 10 # Base speed 
         Ka = 10 # Turning aggressiveness
+        if args.throttle_control:
+            Kd = 10 if angle!= 0 else 30
         
         # Optional: Slow down for hard turns (Simple Dynamic Throttle)
         # if abs(angle) > 0.3:
         #     Kd = 10 # Slow down for corners
         
-        left  = int(Kd + Ka*angle)
+        left  = int(Kd + Ka*angle) 
         right = int(Kd - Ka*angle)
             
         bot.setVelocity(left, right)

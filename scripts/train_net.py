@@ -49,7 +49,7 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 ## Train dataset ##
 ###################
 # 1. Load the FULL dataset first
-full_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_3'), '.jpg', transform)
+full_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'joint_dataset_train_3_train_4'), '.jpg', transform)
 
 # 2. Calculate the split sizes (80% Train, 20% Validation)
 train_size = int(0.8 * len(full_ds))
