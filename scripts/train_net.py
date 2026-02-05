@@ -70,7 +70,7 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 
 # splitting randomly into training and validation
 
-dataset = SteerDataSet(os.path.join(script_path, '..', 'dataC2'), '.jpg', transform)
+dataset = SteerDataSet(os.path.join(script_path, '..','data', 'joint_dataset_train_3_train_4'), '.jpg', transform)
 
 n_total = len(dataset)
 n_train = int(0.8 * n_total)
@@ -180,7 +180,7 @@ imshow(torchvision.utils.make_grid(example_ims))
 ########################
 
 #val_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'val_starter'), '.jpg', transform)
-print("The train dataset contains %d images " % len(val_ds))
+print("The validation dataset contains %d images " % len(val_ds))
 
 #data loader nicely batches images for the training process and shuffles (if desired)
 valloader = DataLoader(val_ds,batch_size=1)
@@ -233,6 +233,16 @@ class Net(nn.Module):
     
 
 net = Net()
+
+# Setup device (CUDA if available, else CPU)
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(f'Using device: {device}')
+if device.type == 'cuda':
+    print(f'GPU: {torch.cuda.get_device_name(0)}')
+    print(f'Memory Available: {torch.cuda.get_device_properties(0).total_memory / 1e9:.2f} GB')
+
+# Move model to device
+net = net.to(device)
 
 # class Net(nn.Module):
 #     def __init__(self):
@@ -323,6 +333,7 @@ for epoch in range(20):  # loop over the dataset multiple times
     for i, data in enumerate(trainloader, 0):
         # get the inputs; data is a list of [inputs, labels]
         inputs, labels = data
+        inputs, labels = inputs.to(device), labels.to(device)
 
         # zero the parameter gradients
         optimizer.zero_grad()
@@ -353,6 +364,7 @@ for epoch in range(20):  # loop over the dataset multiple times
     with torch.no_grad():
         for data in valloader:
             images, labels = data
+            images, labels = images.to(device), labels.to(device)
             outputs = net(images)
             _, predictions = torch.max(outputs, 1)
             loss = criterion(outputs, labels)
@@ -395,7 +407,7 @@ plt.show()
 #######################################################################################################################################
 ####     PERFORMANCE EVALUATION                                                                                                    ####
 #######################################################################################################################################
-net.load_state_dict(torch.load('steer_net.pth'))
+net.load_state_dict(torch.load('steer_net.pth', map_location=device))
 
 correct = 0
 total = 0
@@ -403,6 +415,7 @@ total = 0
 with torch.no_grad():
     for data in valloader:
         images, labels = data
+        images, labels = images.to(device), labels.to(device)
         # calculate outputs by running images through the network
         outputs = net(images)
         
@@ -423,6 +436,7 @@ predicted = []
 with torch.no_grad():
     for data in valloader:
         images, labels = data
+        images, labels = images.to(device), labels.to(device)
         outputs = net(images)
         _, predictions = torch.max(outputs, 1)
 
