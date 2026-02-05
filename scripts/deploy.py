@@ -15,10 +15,11 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from preprocess import PreProcessImage
 # Setup Paths
-from detector import StopSignDetector, StopSignController
+from detector import StopSignDetector, StopSignController, stop_detection_inference
 from net_utils import get_transform
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.abspath(os.path.join(script_path, "../PenguinPi-robot/software/python/client/")))
+
 from pibot_client import PiBot
 from network import Net
 
@@ -81,8 +82,11 @@ print("Get ready...")
 time.sleep(1)
 print("GO!")
 print("throttle control is ", args.throttle_control)
+state = "DRIVING"
 prev_angle = 0.0
 steps = 0
+stop_steps = 10
+stop_steps_passed = 0
 detector = StopSignDetector()
 controller_stopper= StopSignController(1600)
 
@@ -109,6 +113,8 @@ try:
         
 
         im_to_detector = cv2.cvtColor(im_np.copy(),cv2.COLOR_BGR2RGB)
+        im_to_detector_dave = cv2.cvtColor(full_image.copy(),cv2.COLOR_BGR2RGB)
+
         det = detector.detect(im_to_detector.copy())
         img_detection = detector.image_show(im_np.copy(),det)
 
@@ -121,6 +127,26 @@ try:
             break
 
         # ctrl = controller_stopper.update(det)
+        
+        ctrl , areaStop = stop_detection_inference(im_to_detector_dave.copy())
+        if ctrl:
+            if  state == "DRIVING":
+                print("STOP SIGN DETECTED - STOPPING ROBOT")
+                bot.setVelocity(0, 0)
+                state = "STOPPED"
+                continue
+            elif state == "STOPPED":
+                print("COOLDOWN - WAITING BEFORE RESUMING")
+                if stop_steps_passed== stop_steps:
+                      # Cooldown time
+                    state = "DRIVING"
+
+                    stop_steps_passed = 0
+                else:
+                    stop_steps_passed+=1
+                    continue
+        else:
+            state = "DRIVING"
 
         # if ctrl["override"] is True:
         #     bot.setVelocity(0, 0)
@@ -160,7 +186,7 @@ try:
         # delta = np.clip(delta,-2,2)
         # angle = prev_angle + delta
         # prev_angle = angle
-        print(f"Pred Class: {class_id} | Angle: {angle}")
+        print(f"Pred Class: {class_id} | Angle: {angle} | STOP : {ctrl} | AreaStop {areaStop}")
         
         # 5. Control Logic
         Kd = args.speed# Base speed 

@@ -264,3 +264,48 @@ class StopSignController:
 
         self.state = "DRIVING"
         return {"override": False, "speed_cmd": None, "state": self.state}
+    
+
+
+
+
+
+
+def stop_detection_inference(im_np, RGB_thr=[161,255,10,161,72,165,0], area_threshold=100):
+
+    im_np = cv2.cvtColor(im_np,cv2.COLOR_BGR2RGB)
+
+
+    h, w = im_np.shape[:2]
+    im_np = im_np[int(h * 0.5):h, :]
+
+    rgb = im_np
+
+    Rmin, Rmax, Gmin, Gmax, Bmin, Bmax, k = RGB_thr
+
+    R = rgb[:,:,0]
+    G = rgb[:,:,1]
+    B = rgb[:,:,2]
+
+    mask_rgb = (
+        (R >= Rmin) & (R <= Rmax) &
+        (G >= Gmin) & (G <= Gmax) &
+        (B >= Bmin) & (B <= Bmax)
+    )
+
+    mask_redness = (R.astype(np.int16) - np.maximum(G, B).astype(np.int16)) > k
+    mask = mask_rgb & mask_redness
+
+    binary = (mask.astype(np.uint8) * 255)
+
+    # --- Blob detection ---
+    thresholded_im = Image(binary)
+    try:
+        blobs = thresholded_im.blobs()
+    except:
+        blobs = []
+
+    area = sum(b.area for b in blobs)
+
+    # --- STOP COMMAND ---
+    return area > area_threshold , area
