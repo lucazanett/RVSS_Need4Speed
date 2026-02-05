@@ -96,6 +96,33 @@ class StopSignDetector:
         hue_vals = roi_hsv[:, :, 0][idx]
         return float(np.mean(hue_vals)), red_px
 
+
+    def image_show(self, frame_rgb, det: DetectorOutput):
+
+        if frame_rgb is None:
+            return
+        img = cv2.cvtColor(frame_rgb.copy(), cv2.COLOR_RGB2BGR)
+
+        if det.bbox is not None:
+            x, y, w, h = det.bbox
+            cv2.rectangle(img, (x, y), (x + w, y + h), (0, 255, 0), 2)
+
+        if det.centroid is not None:
+            cx, cy = int(det.centroid[0]), int(det.centroid[1])
+            cv2.circle(img, (cx, cy), 5, (0, 255, 0), -1)
+
+        txt = f"seen={det.seen} area={det.area:.1f}"
+        cv2.putText(img, txt, (10, 25),
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+
+        cv2.imshow("ROBOT VIEW", img)
+
+        if self.last_mask is not None:
+            cv2.imshow("MASK", self.last_mask)
+
+        cv2.waitKey(1)
+
+
     def detect(self, frame_rgb: np.ndarray) -> DetectorOutput:
         rgb_roi, (ox, oy) = self._apply_roi(frame_rgb)
 
@@ -180,8 +207,11 @@ class StopSignDetector:
         x, y, w, h = best_bbox_local
         bbox = (x + ox, y + oy, w, h)
 
-        return DetectorOutput(seen=True, area=best_area, bbox=bbox, centroid=centroid)
 
+        det_out = DetectorOutput(seen=True, area=best_area, bbox=bbox, centroid=centroid)
+        self.image_show(frame_rgb, det_out)
+
+        return det_out
 
 
 class StopSignController:
@@ -206,8 +236,7 @@ class StopSignController:
 
     def update(self, det: DetectorOutput) -> Dict[str, Any]:
         now = time.time()
-        if det.seen == True:
-            print(f"Detector: seen={det.seen}, area={det.area:.1f}, state={self.state}")
+
         close = bool(det.seen and det.area >= self.area_stop_threshold)
         self.history.append(1 if close else 0)
         confirmed = (sum(self.history) >= self.confirm_k)

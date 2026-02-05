@@ -123,7 +123,7 @@ try:
 
         
         det = detector.detect(im_np)
-
+        
         ctrl = controller_stopper.update(det)
 
         if ctrl["override"] is True:
