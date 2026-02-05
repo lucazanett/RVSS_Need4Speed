@@ -15,6 +15,8 @@ from PIL import Image
 import matplotlib.pyplot as plt
 from preprocess import PreProcessImage
 # Setup Paths
+from detector import StopSignDetector, StopSignController
+
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.abspath(os.path.join(script_path, "../PenguinPi-robot/software/python/client/")))
 from pibot_client import PiBot
@@ -44,14 +46,14 @@ class Net(nn.Module):
         #linear layer for classification
         x = self.fc1(x)
         x = self.relu(x)
-        # x = self.dropout(x)
+        x = self.dropout(x)
         x = self.fc2(x)
         x = self.relu(x)
-        # x = self.dropout(x)
+        x = self.dropout(x)
         x = self.fc3(x)
        
         return x
-    
+net = Net()
 
 
 # --- 2. CONFIGURATION ---
@@ -106,6 +108,9 @@ print("GO!")
 print("throttle control is ", args.throttle_control)
 prev_angle = 0.0
 steps = 0
+detector = StopSignDetector()
+controller_stopper= StopSignController(1600)
+
 try:
     while True:
         steps+=1
@@ -114,10 +119,25 @@ try:
         # 1. Get image from robot
         im_np = bot.getImage()[120:, :, :]
 
-        # plt.imshow(im_np)
-        # plt.show()
+        
 
         
+        det = detector.detect(im_np)
+
+        ctrl = controller_stopper.update(det)
+
+        if ctrl["override"] is True:
+            bot.setVelocity(0, 0)
+
+            continue
+
+
+
+
+
+
+
+
         
         # 2. Preprocess
         # PiBot image is usually a Numpy array (H,W,C). 
@@ -142,7 +162,7 @@ try:
         # delta = np.clip(delta,-2,2)
         # angle = prev_angle + delta
         # prev_angle = angle
-        print(f"Pred Class: {class_id} | Angle: {angle}")
+        # print(f"Pred Class: {class_id} | Angle: {angle}")
         
         # 5. Control Logic
         Kd = 10 # Base speed 
