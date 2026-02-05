@@ -22,13 +22,23 @@ sys.path.append(os.path.abspath(os.path.join(script_path, "../PenguinPi-robot/so
 from pibot_client import PiBot
 from network import Net
 
+# === Runtime data recording (optional) ===
+from deploy_recorder import RuntimeRecorder
+
 # --- 2. CONFIGURATION ---
 parser = argparse.ArgumentParser(description='PiBot client')
 parser.add_argument('--ip', type=str, default='localhost', help='IP address of PiBot')
 parser.add_argument('--model', type=str, default='steer_net_yuv.pth', help='Path to model file')
 parser.add_argument('--is_regressor',type=bool,default=False)
 parser.add_argument('--throttle_control',type=bool,default=False)
+parser.add_argument('--enable-recording', action='store_true',
+                    help='Enable runtime data recording (press "r" to toggle)')
+parser.add_argument('--record-folder', type=str, default='runtime_recorded',
+                    help='Folder name for recorded data (default: runtime_recorded)')
+
+parser.add_argument("--speed",type = int, default=15)
 args = parser.parse_args()
+
 
 bot = PiBot(ip=args.ip)
 bot.setVelocity(0, 0)
@@ -76,13 +86,24 @@ steps = 0
 detector = StopSignDetector()
 controller_stopper= StopSignController(1600)
 
+# === Initialize runtime recorder (optional) ===
+recorder = None
+if args.enable_recording:
+    recorder = RuntimeRecorder(
+        folder_name=args.record_folder,
+        toggle_mode=True  # Press 'r' to start/stop recording
+    )
+    print(f"Recording enabled! Press 'r' to start/stop recording.\n")
+# === End recorder initialization ===
+
 try:
     while True:
         steps+=1
         if steps % 2 == 0:
             continue
         # 1. Get image from robot
-        im_np = bot.getImage()[120:, :, :]
+        full_image =  bot.getImage()
+        im_np = full_image.copy()[120:, :, :]  # Crop to bottom half (assuming 240p input)
         im_to_net = im_np.copy()
 
         
@@ -99,11 +120,11 @@ try:
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-        ctrl = controller_stopper.update(det)
+        # ctrl = controller_stopper.update(det)
 
-        if ctrl["override"] is True:
-            bot.setVelocity(0, 0)
-            continue
+        # if ctrl["override"] is True:
+        #     bot.setVelocity(0, 0)
+        #     continue
 
 
 
@@ -142,8 +163,8 @@ try:
         print(f"Pred Class: {class_id} | Angle: {angle}")
         
         # 5. Control Logic
-        Kd = 15# Base speed 
-        Ka = 15 # Turning aggressiveness
+        Kd = args.speed# Base speed 
+        Ka = args.speed # Turning aggressiveness
         if args.throttle_control:
             Kd = 10 if angle!= 0 else 30
         
@@ -153,12 +174,22 @@ try:
         
         left  = int(Kd + Ka*angle) 
         right = int(Kd - Ka*angle)
+        
+        # === Runtime data recording (if enabled) ===
+        if recorder is not None:
+            recorder.update(full_image, angle)
+        # === End recorder update ===
             
         bot.setVelocity(left, right)
         
         # Simple sleep to match camera rate (~10-20fps)
-        time.sleep(0.05) 
+        time.sleep(0.1) 
             
-except KeyboardInterrupt:    
+except KeyboardInterrupt:
+    # === Cleanup recorder ===
+    if recorder is not None:
+        recorder.stop()
+    # === End recorder cleanup ===
+    
     bot.setVelocity(0, 0)
     print("\nStopping robot.")
