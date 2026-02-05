@@ -85,10 +85,10 @@ print("throttle control is ", args.throttle_control)
 state = "DRIVING"
 prev_angle = 0.0
 steps = 0
-stop_steps = 10
+stop_steps = 50
 stop_steps_passed = 0
 detector = StopSignDetector()
-controller_stopper= StopSignController(1600)
+controller_stopper= StopSignController(1200)
 
 # === Initialize runtime recorder (optional) ===
 recorder = None
@@ -126,31 +126,35 @@ try:
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
 
-        # ctrl = controller_stopper.update(det)
+        ctrl = controller_stopper.update(det)
         
-        ctrl , areaStop = stop_detection_inference(im_to_detector_dave.copy())
-        if ctrl:
-            if  state == "DRIVING":
-                print("STOP SIGN DETECTED - STOPPING ROBOT")
-                bot.setVelocity(0, 0)
-                state = "STOPPED"
-                continue
-            elif state == "STOPPED":
-                print("COOLDOWN - WAITING BEFORE RESUMING")
-                if stop_steps_passed== stop_steps:
-                      # Cooldown time
-                    state = "DRIVING"
+        # ctrl , areaStop = stop_detection_inference(im_to_detector_dave.copy())
+        # if ctrl:
+        #     if  state == "DRIVING":
+        #         print("STOP SIGN DETECTED - STOPPING ROBOT")
+        #         bot.setVelocity(0, 0)
+        #         state = "STOPPED"
+        #         continue
+        #     elif state == "STOPPED":
+        #         print("COOLDOWN - WAITING BEFORE RESUMING")
+        #         if stop_steps_passed== stop_steps:
+        #               # Cooldown time
+        #             state = "COOLDOWN"
+        #             stop_steps_passed = 0
+        #         else:
+        #             stop_steps_passed+=1
+        #             continue
+        #     elif state == "COOLDOWN":
+        #         if stop_steps_passed > 20*stop_steps:
+        #             state = "DRIVING"
+        #             stop_steps_passed =0 
+        #         else:
+        #             stop_steps_passed+=1
+            
 
-                    stop_steps_passed = 0
-                else:
-                    stop_steps_passed+=1
-                    continue
-        else:
-            state = "DRIVING"
-
-        # if ctrl["override"] is True:
-        #     bot.setVelocity(0, 0)
-        #     continue
+        if ctrl["override"] is True:
+            bot.setVelocity(0, 0)
+            continue
 
 
 
@@ -186,9 +190,18 @@ try:
         # delta = np.clip(delta,-2,2)
         # angle = prev_angle + delta
         # prev_angle = angle
-        print(f"Pred Class: {class_id} | Angle: {angle} | STOP : {ctrl} | AreaStop {areaStop}")
         
-        # 5. Control Logic
+
+        # === Runtime data recording (if enabled) ===
+        if recorder is not None:
+            angleRecorder = recorder.update(full_image, angle)
+        # === End recorder update ===
+        
+
+        print(f"Pred Class: {class_id} | Angle: {angle}")#,  "angle recorder :", angleRecorder if angleRecorder is not None else "nope")
+
+
+                # 5. Control Logic
         Kd = args.speed# Base speed 
         Ka = args.speed # Turning aggressiveness
         if args.throttle_control:
@@ -197,15 +210,11 @@ try:
         # Optional: Slow down for hard turns (Simple Dynamic Throttle)
         # if abs(angle) > 0.3:
         #     Kd = 10 # Slow down for corners
-        
+        if args.enable_recording:
+            angle = angle if angleRecorder is None else angleRecorder
         left  = int(Kd + Ka*angle) 
         right = int(Kd - Ka*angle)
         
-        # === Runtime data recording (if enabled) ===
-        if recorder is not None:
-            recorder.update(full_image, angle)
-        # === End recorder update ===
-            
         bot.setVelocity(left, right)
         
         # Simple sleep to match camera rate (~10-20fps)

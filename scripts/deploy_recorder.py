@@ -22,6 +22,7 @@ import cv2
 import time
 import numpy as np
 from pynput import keyboard
+from pynput.keyboard import Key
 from threading import Lock
 
 
@@ -39,7 +40,8 @@ class RuntimeRecorder:
                  folder_name: str = 'runtime_recorded',
                  base_path: str = None,
                  record_button: str = 'r',
-                 toggle_mode: bool = False):
+                 toggle_mode: bool = False,
+                 autonomous_button: str = 'a'):
         """
         Initialize the runtime recorder.
         
@@ -49,6 +51,7 @@ class RuntimeRecorder:
             record_button: Keyboard key to trigger recording (default: 'r')
             toggle_mode: If True, button toggles recording on/off. 
                         If False, must hold button to record (default: True)
+            autonomous_button: Keyboard key to return to autonomous mode (default: 'a')
         """
         # === Path setup (mirrors collect.py) ===
         if base_path is None:
@@ -57,7 +60,7 @@ class RuntimeRecorder:
         
         self.data_folder = os.path.join(base_path, folder_name)
         self.folder_name = folder_name
-        
+        self.ticks = 0
         # Create folder if it doesn't exist
         os.makedirs(self.data_folder, exist_ok=True)
         
@@ -68,7 +71,12 @@ class RuntimeRecorder:
         self.is_recording = False
         self.toggle_mode = toggle_mode
         self.record_button = record_button
+        self.autonomous_button = autonomous_button
         self._state_lock = Lock()  # Thread-safe state access
+        
+        # === Manual control state ===
+        self.is_manual_control = False
+        self.manual_steering = 0.0  # Range: [-0.5, 0.5]
         
         # === Button handling ===
         self._setup_keyboard_listener()
@@ -82,6 +90,8 @@ class RuntimeRecorder:
         print(f"  Starting frame: {self.frame_number}")
         print(f"  Record button: '{self.record_button}'" + 
               (" (toggle mode)" if toggle_mode else " (hold mode)"))
+        print(f"  Manual control: LEFT/RIGHT arrows (press to activate)")
+        print(f"  Autonomous mode: '{self.autonomous_button}'")
         print(f"  Ready to record!\\n")
     
     def _get_next_frame_number(self) -> int:
@@ -119,13 +129,21 @@ class RuntimeRecorder:
     
     def _setup_keyboard_listener(self):
         """
-        Setup non-blocking keyboard listener for record button.
+        Setup non-blocking keyboard listener for record button and manual control.
         Uses pynput (same as collect.py) for cross-platform compatibility.
         """
         def on_press(key):
             try:
+                # Check for autonomous mode button
+                if hasattr(key, 'char') and key.char == self.autonomous_button:
+                    with self._state_lock:
+                        if self.is_manual_control:
+                            self.is_manual_control = False
+                            self.manual_steering = 0.0
+                            print(f"\\n[RuntimeRecorder] Switched to AUTONOMOUS mode")
+                
                 # Check if the pressed key matches our record button
-                if hasattr(key, 'char') and key.char == self.record_button:
+                elif hasattr(key, 'char') and key.char == self.record_button:
                     with self._state_lock:
                         if self.toggle_mode:
                             # Toggle mode: flip recording state
@@ -145,6 +163,26 @@ class RuntimeRecorder:
                                 self.is_recording = True
                                 self.session_start_time = time.time()
                                 print(f"\\n[RuntimeRecorder] Recording... (release '{self.record_button}' to stop)")
+                
+                # Check for arrow keys (manual control - steering only)
+                elif key == Key.left:
+                    with self._state_lock:
+                        if not self.is_manual_control:
+                            self.is_manual_control = True
+                            print(f"\\n[RuntimeRecorder] Switched to MANUAL CONTROL mode")
+                            print(f"  UP/DOWN: Speed, LEFT/RIGHT: Steering")
+                            print(f"  Press '{self.autonomous_button}' to return to autonomous\\n")
+                        self.manual_steering += -0.25  # Turn left
+                
+                elif key == Key.right:
+                    with self._state_lock:
+                        if not self.is_manual_control:
+                            self.is_manual_control = True
+                            print(f"\\n[RuntimeRecorder] Switched to MANUAL STEERING mode")
+                            print(f"  LEFT/RIGHT: Steering control")
+                            print(f"  Press '{self.autonomous_button}' to return to autonomous\\n")
+                        self.manual_steering += 0.25  # Turn right
+                        
             except Exception as e:
                 print(f"[RuntimeRecorder] Keyboard handler error: {e}")
         
@@ -160,6 +198,14 @@ class RuntimeRecorder:
                             print(f"  Frames recorded this session: {self.frames_recorded}")
                             print(f"  Session duration: {duration:.1f}s\\n")
                             self.frames_recorded = 0
+                            self.ticks = 0
+                
+                # Reset manual steering when arrow keys are released
+                elif key == Key.left or key == Key.right:
+                    with self._state_lock:
+                        if self.is_manual_control:
+                            self.manual_steering = 0.0
+                            
             except Exception as e:
                 print(f"[RuntimeRecorder] Keyboard handler error: {e}")
         
@@ -183,33 +229,44 @@ class RuntimeRecorder:
             delta: Steering command in range [-0.5, 0.5] (or will be clamped)
         """
         # Quick check without lock (reading bool is atomic in Python)
-        if not self.is_recording:
-            return
-        
-        try:
-            # Clamp angle to valid range (mirrors collect.py line 90)
-            angle = np.clip(delta, -0.5, 0.5)
-            
-            # Generate filename (mirrors collect.py line 119)
-            # Format: {frame_number:06d}{angle:.2f}.jpg
-            # Example: 000042-0.35.jpg or 001337+0.12.jpg
-            filename = f"{str(self.frame_number).zfill(6)}{angle:+.2f}.jpg"
-            filepath = os.path.join(self.data_folder, filename)
-            
-            # Save image (mirrors collect.py line 119)
-            cv2.imwrite(filepath, image)
-            
-            # Increment frame counter
-            self.frame_number += 1
-            self.frames_recorded += 1
+        angle = np.clip(delta, -0.5, 0.5)
+        if self.manual_steering is not None:
+            self.manual_steering= np.clip(self.manual_steering, -0.5,0.5)
+        if self.is_recording:
             
             
-            # Optional: Print progress every N frames
-            if self.frames_recorded % 100 == 0:
-                print(f"[RuntimeRecorder] Recorded {self.frames_recorded} frames...")
+            try:
+                if self.is_manual_control:
+                    angle = self.manual_steering
+                # Clamp angle to valid range (mirrors collect.py line 90)
                 
-        except Exception as e:
-            print(f"[RuntimeRecorder] Error saving frame: {e}")
+                # Generate filename (mirrors collect.py line 119)
+                # Format: {frame_number:06d}{angle:.2f}.jpg
+                # Example: 000042-0.35.jpg or 001337+0.12.jpg
+                filename = f"{str(self.frame_number).zfill(6)}{angle:+.2f}.jpg"
+                filepath = os.path.join(self.data_folder, filename)
+                
+                if self.ticks % 4 == 0:
+                # Save image (mirrors collect.py line 119)
+                    cv2.imwrite(filepath, image)
+                
+                # Increment frame counter
+                self.frame_number += 1
+                self.frames_recorded += 1
+                self.ticks+=1
+                
+                # Optional: Print progress every N frames
+                if self.frames_recorded % 100 == 0:
+                    print(f"[RuntimeRecorder] Recorded {self.frames_recorded} frames...")
+                        
+            except Exception as e:
+                print(f"[RuntimeRecorder] Error saving frame: {e}")
+
+        if self.is_manual_control:
+            return self.manual_steering
+        else :
+            return None
+
     
     def stop(self):
         """
@@ -235,8 +292,21 @@ class RuntimeRecorder:
             'is_recording': self.is_recording,
             'frames_recorded': self.frames_recorded,
             'next_frame_number': self.frame_number,
-            'data_folder': self.data_folder
+            'data_folder': self.data_folder,
+            'is_manual_control': self.is_manual_control
         }
+    
+    def get_manual_command(self) -> tuple:
+        """
+        Get the current manual control command.
+        
+        Returns:
+            Tuple of (is_manual, steering):
+                - is_manual: True if in manual control mode
+                - steering: Manual steering command [-0.5, 0.5]
+        """
+        with self._state_lock:
+            return (self.is_manual_control, self.manual_steering)
 
 
 # === Example usage (for testing) ===
@@ -268,6 +338,8 @@ if __name__ == "__main__":
             
             frame_count += 1
             time.sleep(0.1)  # 20 FPS simulation
+
+    
             
     except KeyboardInterrupt:
         print("\\n\\nTest stopped by user")

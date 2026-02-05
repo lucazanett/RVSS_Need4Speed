@@ -273,7 +273,6 @@ class StopSignController:
 
 def stop_detection_inference(im_np, RGB_thr=[161,255,10,161,72,165,0], area_threshold=100):
 
-    im_np = cv2.cvtColor(im_np,cv2.COLOR_BGR2RGB)
 
 
     h, w = im_np.shape[:2]
