@@ -36,7 +36,11 @@ bot.setVelocity(0, 0)
 # --- 3. LOAD NETWORK ---
 print(f"Loading model from {args.model}...")
 device = torch.device('cpu') # Robot usually runs on CPU
-model = Net(num_outputs=1 if args.is_regressor else 5).to(device)
+num_outputs=1 if args.is_regressor else 5
+print("is regressor," ,args.is_regressor)
+
+
+model = Net(num_outputs=num_outputs).to(device)
 try:
     # Load weights (map_location ensures it works even if trained on GPU)
     model.load_state_dict(torch.load(args.model, map_location=device))
@@ -127,12 +131,15 @@ try:
             class_id = prediction.item()
 
         # 4. Map to Angle
-        angle = class_to_angle.get(class_id, 0.0) # Default to 0 if unknown class
+        if args.is_regressor == False:
+            angle = class_to_angle.get(class_id, 0.0)
+        else:
+            angle = class_id # Default to 0 if unknown class
         # delta = angle - prev_angle
         # delta = np.clip(delta,-2,2)
         # angle = prev_angle + delta
         # prev_angle = angle
-        # print(f"Pred Class: {class_id} | Angle: {angle}")
+        print(f"Pred Class: {class_id} | Angle: {angle}")
         
         # 5. Control Logic
         Kd = 15# Base speed 
