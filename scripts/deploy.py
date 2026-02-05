@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from preprocess import PreProcessImage
 # Setup Paths
 from detector import StopSignDetector, StopSignController
-
+from net_utils import get_transform
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.abspath(os.path.join(script_path, "../PenguinPi-robot/software/python/client/")))
 from pibot_client import PiBot
@@ -52,13 +52,7 @@ except Exception as e:
 # --- 4. DEFINE TRANSFORMS (Must match training) ---
 # Note: We assume the robot camera gives a Numpy array. 
 # ToTensor() converts (H, W, C) -> (C, H, W) and scales 0-255 to 0.0-1.0
-preprocess = transforms.Compose([
-    PreProcessImage(),
-    transforms.ToTensor(),
-    transforms.Resize((40, 60)),
-    transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))
-])
-
+preprocess = get_transform()
 # --- 5. CLASS MAPPING ---
 # You need to map the output Class ID (0, 1, 2...) to a Steering Angle.
 # ADJUST THESE VALUES based on your training labels!

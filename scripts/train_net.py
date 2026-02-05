@@ -15,7 +15,7 @@ from torch.utils.data import random_split
 from steerDS import SteerDataSet
 from preprocess import PreProcessImage
 from network import Net
-
+from net_utils import get_transform
 #######################################################################################################################################
 ####     This tutorial is adapted from the PyTorch "Train a Classifier" tutorial                                                   ####
 ####     Please review here if you get stuck: https://pytorch.org/tutorials/beginner/blitz/cifar10_tutorial.html                   ####
@@ -37,12 +37,8 @@ def imshow(img):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("RUNNING ON ", device)
 #transformations for raw images before going to CNN
-transform = transforms.Compose([                                PreProcessImage(),
+transform = get_transform()
 
-    transforms.ToTensor(),
-                                transforms.Resize((40, 60)),
-                                transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5)),
-                                ])
 
 script_path = os.path.dirname(os.path.realpath(__file__))
 
