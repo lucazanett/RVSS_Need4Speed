@@ -9,6 +9,7 @@ import torch.optim as optim
 import os
 import numpy as np
 import sklearn.metrics as metrics
+import argparse
 
 import matplotlib.pyplot as plt
 from torch.utils.data import random_split
@@ -34,6 +35,47 @@ def imshow(img):
 #######################################################################################################################################
 ####     SETTING UP THE DATASET                                                                                                    ####
 #######################################################################################################################################
+
+# Parse command-line arguments
+parser = argparse.ArgumentParser(description='Train steering angle classifier')
+parser.add_argument('--data', type=str, default='train_5',
+                    help='Name of the training data folder in data/ (default: train_5)')
+parser.add_argument('--model', type=str, default='steer_net.pth',
+                    help='Name for the saved model file (default: steer_net.pth)')
+parser.add_argument('--epochs', type=int, default=30,
+                    help='Number of training epochs (default: 30)')
+parser.add_argument('--batch-size', type=int, default=8,
+                    help='Batch size for training (default: 8)')
+parser.add_argument('--lr', type=float, default=0.001,
+                    help='Learning rate (default: 0.001)')
+args = parser.parse_args()
+
+print(f"Training configuration:")
+print(f"  Data folder: {args.data}")
+print(f"  Model name: {args.model}")
+print(f"  Epochs: {args.epochs}")
+print(f"  Batch size: {args.batch_size}")
+print(f"  Learning rate: {args.lr}")
+
+# Check if model file already exists
+if os.path.exists(args.model):
+    print(f"\n⚠ WARNING: Model file '{args.model}' already exists!")
+    while True:
+        response = input("Do you want to (o)verride it or use a (d)ifferent name? [o/d]: ").strip().lower()
+        if response == 'o':
+            print(f"Will override existing model '{args.model}'")
+            break
+        elif response == 'd':
+            new_name = input(f"Enter new model name (e.g., 'steer_net_v2.pth'): ").strip()
+            if new_name:
+                args.model = new_name
+                print(f"Will save model as '{args.model}'")
+                break
+            else:
+                print("Invalid name. Please try again.")
+        else:
+            print("Please enter 'o' for override or 'd' for different name.")
+
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print("RUNNING ON ", device)
 #transformations for raw images before going to CNN
@@ -46,7 +88,7 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 ## Train dataset ##
 ###################
 # 1. Load the FULL dataset first
-full_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_5'), '.jpg', transform)
+full_ds = SteerDataSet(os.path.join(script_path, '..', 'data', args.data), '.jpg', transform)
 
 # 2. Calculate the split sizes (80% Train, 20% Validation)
 train_size = int(0.8 * len(full_ds))
@@ -55,12 +97,10 @@ val_size = len(full_ds) - train_size
 # 3. Create the random split
 # This automatically shuffles and assigns images to one of the two sets
 train_ds, val_ds = random_split(full_ds, [train_size, val_size])
-train_original_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_starter'), '.jpg', transform)
-print("The train dataset contains %d images " % len(train_ds))
+
 
 #data loader nicely batches images for the training process and shuffles (if desired)
-trainloader = DataLoader(train_ds,batch_size=8,shuffle=True)
-trainloader_original = DataLoader(train_original_ds,batch_size=8,shuffle=True)
+trainloader = DataLoader(train_ds,batch_size=args.batch_size,shuffle=True)
 all_y = []
 for S in trainloader:
     im, y = S    
@@ -80,22 +120,6 @@ plt.ylabel('Counts')
 plt.xticks(all_lbls)
 plt.title('Training Dataset')
 plt.show()
-all_y = []
-for S in trainloader_original:
-    im, y = S    
-    all_y += y.tolist()
-
-
-print(f'Input to network shape: {im.shape}')
-
-#visualise the distribution of GT labels
-all_lbls, all_counts = np.unique(all_y, return_counts = True)
-plt.bar(all_lbls, all_counts, width = (all_lbls[1]-all_lbls[0])/2)
-plt.xlabel('Labels')
-plt.ylabel('Counts')
-plt.xticks(all_lbls)
-plt.title('Training original Dataset')
-plt.show()
 
 # visualise some images and print labels -- check these seem reasonable
 example_ims, example_lbls = next(iter(trainloader))
@@ -107,8 +131,6 @@ imshow(torchvision.utils.make_grid(example_ims))
 ## Validation dataset ##
 ########################
 
-val_orginal_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'val_starter'), '.jpg', transform)
-print("The train dataset contains %d images " % len(val_ds))
 
 #data loader nicely batches images for the training process and shuffles (if desired)
 valloader = DataLoader(val_ds,batch_size=1)
@@ -127,29 +149,10 @@ plt.ylabel('Counts')
 plt.xticks(all_lbls)
 plt.title('Validation Dataset')
 plt.show()
-val_original_loader = DataLoader(val_orginal_ds,batch_size=1)
-all_y = []
-for S in val_original_loader:
-    im, y = S    
-    all_y += y.tolist()
-
-
-print(f'Input to network shape: {im.shape}')
-
-#visualise the distribution of GT labels
-all_lbls, all_counts = np.unique(all_y, return_counts = True)
-plt.bar(all_lbls, all_counts, width = (all_lbls[1]-all_lbls[0])/2)
-plt.xlabel('Labels')
-plt.ylabel('Counts')
-plt.xticks(all_lbls)
-plt.title('VAlidation original Dataset')
-plt.show()
 
 #######################################################################################################################################
 ####     INITIALISE OUR NETWORK                                                                                                    ####
 #######################################################################################################################################
-
-
     
 
 net = Net().to(device)
@@ -159,13 +162,10 @@ net = Net().to(device)
 #######################################################################################################################################
 
 #for classification tasks
-
-
-
 criterion = nn.CrossEntropyLoss()
 #You could use also ADAM
-optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
-# optimizer = optim.Adam(net.parameters())
+optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9)
+# optimizer = optim.Adam(net.parameters(), lr=args.lr)
 
 
 #######################################################################################################################################
@@ -174,7 +174,7 @@ optimizer = optim.SGD(net.parameters(), lr=0.001, momentum=0.9)
 losses = {'train': [], 'val': []}
 accs = {'train': [], 'val': []}
 best_acc = 0
-for epoch in range(30):  # loop over the dataset multiple times
+for epoch in range(args.epochs):  # loop over the dataset multiple times
 
     epoch_loss = 0.0
     correct = 0
@@ -232,8 +232,9 @@ for epoch in range(30):  # loop over the dataset multiple times
     losses['val'] += [val_loss/len(valloader)]
 
     if np.mean(class_accs) > best_acc:
-        torch.save(net.state_dict(), 'steer_net_luca_5.pth')
+        torch.save(net.state_dict(), args.model)
         best_acc = np.mean(class_accs)
+        print(f'  → New best model saved: {args.model} (val acc: {best_acc:.2f}%)')
 
 print('Finished Training')
 
@@ -253,7 +254,7 @@ plt.show()
 #######################################################################################################################################
 ####     PERFORMANCE EVALUATION                                                                                                    ####
 #######################################################################################################################################
-net.load_state_dict(torch.load('steer_net.pth'))
+net.load_state_dict(torch.load(args.model))
 
 correct = 0
 total = 0
