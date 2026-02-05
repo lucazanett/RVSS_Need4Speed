@@ -127,12 +127,12 @@ try:
             
             # Get the class with the highest score
             # prediction is the index (e.g., 2)
-            _, prediction = torch.max(output, 1)
-            class_id = prediction.item()
+            class_id = torch.argmax(torch.softmax(output, dim=1)).item()
+            # class_id = prediction.item()
 
         # 4. Map to Angle
         if args.is_regressor == False:
-            angle = class_to_angle.get(class_id, 0.0)
+            angle = class_to_angle.get(class_id)
         else:
             angle = class_id # Default to 0 if unknown class
         # delta = angle - prev_angle

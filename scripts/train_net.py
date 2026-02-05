@@ -265,7 +265,7 @@ with torch.no_grad():
         outputs = net(images)
         
         # the class with the highest energy is what we choose as prediction
-        _, predicted = torch.max(outputs, 1)
+        predicted = torch.softmax(outputs, dim=1)
         total += labels.size(0)
         correct += (predicted == labels).sum().item()
 
