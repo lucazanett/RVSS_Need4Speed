@@ -407,7 +407,7 @@ plt.show()
 #######################################################################################################################################
 ####     PERFORMANCE EVALUATION                                                                                                    ####
 #######################################################################################################################################
-net.load_state_dict(torch.load('steer_net.pth', map_location=device))
+net.load_state_dict(torch.load('steer_net_davide.pth', map_location=device))
 
 correct = 0
 total = 0

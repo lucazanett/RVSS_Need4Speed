@@ -9,3 +9,6 @@
 # WSL
 *:Zone.Identifier
 *.DS_Store
+*.pth
+*.mp4
+*.png
