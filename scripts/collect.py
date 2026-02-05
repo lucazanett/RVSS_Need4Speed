@@ -1,3 +1,34 @@
+'''
+# --------------------------
+# Save-thinning parameters (NEW)
+# --------------------------
+STRAIGHT_EPS = 0.05        # treat |angle| < this as "straight-ish"
+KEEP_STRAIGHT_EVERY = 5    # keep 1 in 5 straight frames
+
+# --------------------------
+# SAVE RULE OF THUMB (NEW)
+# - keep ALL turning frames
+# - thin straight frames (1 in N)
+# --------------------------
+keep = True
+if abs(angle) < STRAIGHT_EPS:
+    keep = (im_number % KEEP_STRAIGHT_EVERY == 0)
+
+if keep:
+    cv2.imwrite(
+        script_path + "/../data/" + args.folder + "/" +
+        str(im_number).zfill(6) + ('%.2f' % angle) + ".jpg",
+        img
+    )
+    im_number += 1
+
+
+
+
+
+
+
+'''
 #!/usr/bin/env python
 import time
 import sys
