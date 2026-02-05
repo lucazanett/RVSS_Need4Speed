@@ -14,6 +14,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import random_split
 from steerDS import SteerDataSet
 from preprocess import PreProcessImage
+from network import Net
 
 #######################################################################################################################################
 ####     This tutorial is adapted from the PyTorch "Train a Classifier" tutorial                                                   ####
@@ -49,7 +50,7 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 ## Train dataset ##
 ###################
 # 1. Load the FULL dataset first
-full_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'joint_dataset_train_3_train_4'), '.jpg', transform)
+full_ds = SteerDataSet(os.path.join(script_path, '..', 'data', 'train_5'), '.jpg', transform)
 
 # 2. Calculate the split sizes (80% Train, 20% Validation)
 train_size = int(0.8 * len(full_ds))
@@ -152,37 +153,7 @@ plt.show()
 ####     INITIALISE OUR NETWORK                                                                                                    ####
 #######################################################################################################################################
 
-class Net(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.conv2 = nn.Conv2d(6, 16, 5)
 
-        self.pool = nn.MaxPool2d(2, 2)
-
-        self.fc1 = nn.Linear(1344, 256)
-        self.fc2 = nn.Linear(256,128)
-        self.fc3 = nn.Linear(128, 5)
-
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.3)
-
-    def forward(self, x):
-        #extract features with convolutional layers
-        x = self.pool(self.relu(self.conv1(x)))
-        x = self.pool(self.relu(self.conv2(x)))
-        x = torch.flatten(x, 1) # flatten all dimensions except batch
-        
-        #linear layer for classification
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.fc2(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.fc3(x)
-       
-        return x
     
 
 net = Net().to(device)
@@ -265,7 +236,7 @@ for epoch in range(30):  # loop over the dataset multiple times
     losses['val'] += [val_loss/len(valloader)]
 
     if np.mean(class_accs) > best_acc:
-        torch.save(net.state_dict(), 'steer_net.pth')
+        torch.save(net.state_dict(), 'steer_net_luca_5.pth')
         best_acc = np.mean(class_accs)
 
 print('Finished Training')

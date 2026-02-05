@@ -13,7 +13,7 @@ from pibot_client import PiBot
 parser = argparse.ArgumentParser(description='PiBot client')
 parser.add_argument('--ip', type=str, default='localhost', help='IP address of PiBot')
 parser.add_argument('--im_num', type = int, default = 0)
-parser.add_argument('--folder', type = str, default = 'train')
+parser.add_argument('--folder', type = str, default = 'train_5')
 args = parser.parse_args()
 
 if not os.path.exists(script_path+"/../data/"+args.folder):
@@ -96,21 +96,21 @@ try:
         text = f"Angle: {angle:.2f}"
         display_img = img.copy()
         cv2.putText(display_img, text, org, font, fontScale, color, thickness, cv2.LINE_AA)
-        cv2.imshow("PiBot View", display_img)
+        # cv2.imshow("PiBot View", display_img)
 
         # 2. Define text properties
 
-        # This is required to refresh the image window
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            continue_running = False
+        # # This is required to refresh the image window
+        # if cv2.waitKey(1) & 0xFF == ord('q'):
+        #     continue_running = False
         # --------------------------
 
         
 
 
         print("CURRENT ANGLE : ", angle)
-        Kd = 10 # Base wheel speeds
-        Ka = 10  # Turn speed
+        Kd = 20 # Base wheel speeds
+        Ka = 20  # Turn speed
         left  = int(Kd + Ka*angle)
         right = int(Kd - Ka*angle)
         

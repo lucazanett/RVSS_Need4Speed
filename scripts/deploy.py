@@ -20,39 +20,9 @@ from detector import StopSignDetector, StopSignController
 script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.abspath(os.path.join(script_path, "../PenguinPi-robot/software/python/client/")))
 from pibot_client import PiBot
-
+from network import Net
 # --- 1. DEFINE THE NETWORK ARCHITECTURE (Must match training exactly) ---
-class Net(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.conv1 = nn.Conv2d(3, 6, 5)
-        self.conv2 = nn.Conv2d(6, 16, 5)
 
-        self.pool = nn.MaxPool2d(2, 2)
-
-        self.fc1 = nn.Linear(1344, 256)
-        self.fc2 = nn.Linear(256,128)
-        self.fc3 = nn.Linear(128, 5)
-
-        self.relu = nn.ReLU()
-        self.dropout = nn.Dropout(0.3)
-
-    def forward(self, x):
-        #extract features with convolutional layers
-        x = self.pool(self.relu(self.conv1(x)))
-        x = self.pool(self.relu(self.conv2(x)))
-        x = torch.flatten(x, 1) # flatten all dimensions except batch
-        
-        #linear layer for classification
-        x = self.fc1(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.fc2(x)
-        x = self.relu(x)
-        x = self.dropout(x)
-        x = self.fc3(x)
-       
-        return x
 net = Net()
 
 
@@ -118,17 +88,26 @@ try:
             continue
         # 1. Get image from robot
         im_np = bot.getImage()[120:, :, :]
+        im_to_net = im_np.copy()
 
         
 
+        im_to_detector = cv2.cvtColor(im_np.copy(),cv2.COLOR_BGR2RGB)
+        det = detector.detect(im_to_detector.copy())
+        img_detection = detector.image_show(im_np.copy(),det)
+
+        # Display both the raw image and detection image
+        cv2.imshow("Raw Image", im_np)
+        cv2.imshow("PiBot Autonomous View", img_detection)
         
-        det = detector.detect(im_np)
-        
+        # Required to refresh the windows (1ms wait, non-blocking)
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+
         ctrl = controller_stopper.update(det)
 
         if ctrl["override"] is True:
             bot.setVelocity(0, 0)
-
             continue
 
 
@@ -142,7 +121,7 @@ try:
         # 2. Preprocess
         # PiBot image is usually a Numpy array (H,W,C). 
         # Transform expects a PIL Image or Numpy array.
-        input_tensor = preprocess(im_np)
+        input_tensor = preprocess(im_to_net)
         
         # Add batch dimension: [3, 40, 60] -> [1, 3, 40, 60]
         input_tensor = input_tensor.unsqueeze(0)

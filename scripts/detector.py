@@ -100,6 +100,7 @@ class StopSignDetector:
     def image_show(self, frame_rgb, det: DetectorOutput):
 
         if frame_rgb is None:
+            print("PORCODIO")
             return
         img = cv2.cvtColor(frame_rgb.copy(), cv2.COLOR_RGB2BGR)
 
@@ -115,12 +116,13 @@ class StopSignDetector:
         cv2.putText(img, txt, (10, 25),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
 
-        cv2.imshow("ROBOT VIEW", img)
+        # cv2.imshow("ROBOT VIEW", img)
 
-        if self.last_mask is not None:
-            cv2.imshow("MASK", self.last_mask)
+        # if self.last_mask is not None:
+        #     cv2.imshow("MASK", self.last_mask)
 
-        cv2.waitKey(1)
+        # cv2.waitKey(1)
+        return img
 
 
     def detect(self, frame_rgb: np.ndarray) -> DetectorOutput:
@@ -209,7 +211,6 @@ class StopSignDetector:
 
 
         det_out = DetectorOutput(seen=True, area=best_area, bbox=bbox, centroid=centroid)
-        self.image_show(frame_rgb, det_out)
 
         return det_out
 
