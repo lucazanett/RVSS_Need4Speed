@@ -7,7 +7,7 @@ from glob import glob
 from os import path
 class SteerDataSet(Dataset):
     
-    def __init__(self,root_folder,img_ext = ".jpg" , transform=None):
+    def __init__(self,root_folder,img_ext = ".jpg" , transform=None, is_regressor=False):
         self.root_folder = root_folder
         self.transform = transform        
         self.img_ext = img_ext        
@@ -18,6 +18,7 @@ class SteerDataSet(Dataset):
                             'straight',
                             'right',
                             'sharp right']
+        self.is_regressor = is_regressor
         
     def __len__(self):        
         return len(self.filenames)
@@ -33,15 +34,18 @@ class SteerDataSet(Dataset):
         steering = path.split(f)[-1].split(self.img_ext)[0][6:]
         steering = float(steering)       
         # steering_cls = steering
-        if steering <= -0.5:
-            steering_cls = 0
-        elif steering < 0:
-            steering_cls = 1
-        elif steering == 0:
-            steering_cls = 2
-        elif steering < 0.5:
-            steering_cls = 3
+        if self.is_regressor == False:
+            if steering <= -0.5:
+                steering_cls = 0
+            elif steering < 0:
+                steering_cls = 1
+            elif steering == 0:
+                steering_cls = 2
+            elif steering < 0.5:
+                steering_cls = 3
+            else:
+                steering_cls = 4 
+                        
+            return img, steering_cls
         else:
-            steering_cls = 4 
-                      
-        return img, steering_cls
+            return img, steering

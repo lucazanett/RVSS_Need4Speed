@@ -21,15 +21,12 @@ script_path = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.abspath(os.path.join(script_path, "../PenguinPi-robot/software/python/client/")))
 from pibot_client import PiBot
 from network import Net
-# --- 1. DEFINE THE NETWORK ARCHITECTURE (Must match training exactly) ---
-
-net = Net()
-
 
 # --- 2. CONFIGURATION ---
 parser = argparse.ArgumentParser(description='PiBot client')
 parser.add_argument('--ip', type=str, default='localhost', help='IP address of PiBot')
 parser.add_argument('--model', type=str, default='steer_net_yuv.pth', help='Path to model file')
+parser.add_argument('--is_regressor',type=bool,default=False)
 parser.add_argument('--throttle_control',type=bool,default=False)
 args = parser.parse_args()
 
@@ -39,7 +36,7 @@ bot.setVelocity(0, 0)
 # --- 3. LOAD NETWORK ---
 print(f"Loading model from {args.model}...")
 device = torch.device('cpu') # Robot usually runs on CPU
-model = Net()
+model = Net(num_outputs=1 if args.is_regressor else 5).to(device)
 try:
     # Load weights (map_location ensures it works even if trained on GPU)
     model.load_state_dict(torch.load(args.model, map_location=device))
@@ -138,8 +135,8 @@ try:
         # print(f"Pred Class: {class_id} | Angle: {angle}")
         
         # 5. Control Logic
-        Kd = 10 # Base speed 
-        Ka = 10 # Turning aggressiveness
+        Kd = 15# Base speed 
+        Ka = 15 # Turning aggressiveness
         if args.throttle_control:
             Kd = 10 if angle!= 0 else 30
         

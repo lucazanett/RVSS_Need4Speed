@@ -109,8 +109,8 @@ try:
 
 
         print("CURRENT ANGLE : ", angle)
-        Kd = 20 # Base wheel speeds
-        Ka = 20  # Turn speed
+        Kd = 15 # Base wheel speeds
+        Ka = 15  # Turn speed
         left  = int(Kd + Ka*angle)
         right = int(Kd - Ka*angle)
         
